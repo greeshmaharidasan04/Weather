@@ -3,6 +3,16 @@ import sys
 import requests
 from datetime import datetime
 
+if hasattr(sys.stdout, 'reconfigure'):
+    sys.stdout.reconfigure(encoding='utf-8')
+
+try:
+    from termgraph.termgraph import chart
+    from termgraph.data import Data
+    HAS_TERMGRAPH = True
+except ImportError:
+    HAS_TERMGRAPH = False
+
 WMO_CODES = {
     0: "Clear sky",
     1: "Mainly clear", 2: "Partly cloudy", 3: "Overcast",
@@ -63,6 +73,42 @@ def fmt_date(date_str):
     d = datetime.strptime(date_str, "%Y-%m-%d")
     return d.strftime("%a %d %b")  # e.g. "Thu 19 Feb"
 
+def print_graphs(daily):
+    if not HAS_TERMGRAPH:
+        print("  (Install termgraph for charts: pip install termgraph)\n")
+        return
+
+    labels = ["Today    "] + [fmt_date(daily["time"][i]) for i in range(1, 7)]
+    temps = [[daily["temperature_2m_max"][i] or 0.0] for i in range(7)]
+    rains = [[daily["precipitation_probability_max"][i] or 0] for i in range(7)]
+
+    base_args = {
+        "title": "",
+        "width": 40,
+        "format": "{:.1f}",
+        "suffix": "",
+        "no_labels": False,
+        "no_values": False,
+        "space_between": False,
+        "color": None,
+        "custom_tick": "",
+        "vertical": False,
+        "stacked": False,
+        "histogram": False,
+        "bins": 5,
+        "different_scale": False,
+        "percentage": False,
+        "no_readable": False,
+        "label_before": False,
+    }
+
+    print("\n  Max Temperature (°C)")
+    chart(Data(temps, labels), {**base_args, "title": "Max Temp", "suffix": "°C"}, [])
+
+    print("\n  Rain Probability (%)")
+    chart(Data(rains, labels), {**base_args, "title": "Rain Prob", "format": "{:.0f}", "suffix": "%"}, [])
+
+
 def main():
     if len(sys.argv) < 2:
         print("Usage: weather <city>")
@@ -99,6 +145,7 @@ def main():
         print(f"  {label}  {tmax:>4}° / {tmin:>3}°  Rain {rain:>3}%  {desc}")
 
     print(f"{sep}\n")
+    print_graphs(daily)
 
 if __name__ == "__main__":
     main()
